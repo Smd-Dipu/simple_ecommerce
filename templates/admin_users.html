@@ -1,0 +1,55 @@
+{% extends 'admin_base.html' %}
+
+{% block content %}
+<div class="users-container" style="max-width: 800px; margin: 2rem auto;">
+    <h1>User Management</h1>
+
+    <div class="card"
+        style="background: rgb(230, 220, 220); padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 2rem;">
+        <table class="cart-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Current Role</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <span
+                            class="status-badge status-{{ 'completed' if user.role == 'admin' else 'shipped' if user.role == 'staff' else 'pending' }}">
+                            {{ user.role }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if user.username != 'admin' %}
+                        <form action="{{ url_for('update_role', user_id=user.id) }}" method="POST"
+                            style="display: flex; gap: 0.5rem;">
+                            <select name="role"
+                                style="padding: 0.25rem; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                <option value="customer" {% if user.role=='customer' %}selected{% endif %}>Customer
+                                </option>
+                                <option value="staff" {% if user.role=='staff' %}selected{% endif %}>Staff</option>
+                                <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                            <button type="submit" class="btn"
+                                style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Update</button>
+                        </form>
+                        {% else %}
+                        <span style="color: #64748b; font-size: 0.875rem;">Super Admin</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

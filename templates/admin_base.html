@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Simple E-commerce</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Admin specific overrides */
+        .navbar {
+            background-color: #1e293b;
+            /* Darker navbar for admin */
+        }
+
+        .logo {
+            color: #fff;
+        }
+
+        .nav-links a {
+            color: #e2e8f0;
+        }
+
+        .nav-links a:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('dashboard') }}" class="logo">ShopSimple Admin</a>
+            <ul class="nav-links">
+                {% if session.get('admin_user_id') %}
+                <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                {% if session.get('admin_role') == 'admin' %}
+                <li><a href="{{ url_for('users') }}">Users</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('profile') }}">Profile</a></li>
+                <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                {% endif %}
+                <li><a href="http://127.0.0.1:5000" target="_blank">View Store</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2023 Simple E-commerce Admin.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

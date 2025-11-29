@@ -1,0 +1,45 @@
+{% extends 'admin_base.html' %}
+
+{% block content %}
+<div class="profile-container" style="max-width: 600px; margin: 2rem auto;">
+    <h1>Admin Profile</h1>
+
+    <div class="card"
+        style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 2rem;">
+        <div style="margin-bottom: 2rem;">
+            <h2>User Details</h2>
+            <p><strong>Username:</strong> {{ user.username }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Role:</strong> Administrator</p>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 2rem 0;">
+
+        <h2>Change Password</h2>
+        <form action="{{ url_for('change_password') }}" method="POST">
+            <div style="margin-bottom: 1rem;">
+                <label for="current_password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Current
+                    Password</label>
+                <input type="password" id="current_password" name="current_password" required
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label for="new_password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">New
+                    Password</label>
+                <input type="password" id="new_password" name="new_password" required
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <label for="confirm_password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Confirm
+                    New Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+
+            <button type="submit" class="btn">Update Password</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

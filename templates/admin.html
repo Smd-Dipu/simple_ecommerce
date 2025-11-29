@@ -1,0 +1,131 @@
+{% extends 'admin_base.html' %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <h1>Admin Dashboard</h1>
+
+    <div class="dashboard-grid">
+        <div class="chart-container">
+            <h2>Sales Overview (Last 30 Days)</h2>
+            <canvas id="salesChart"></canvas>
+        </div>
+
+        <div class="transactions-container">
+            <h2>Recent Transactions</h2>
+            <table class="cart-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>User</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.user.username }}</td>
+                        <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <span class="status-badge status-{{ order.status.lower() }}">{{ order.status }}</span>
+                        </td>
+                        <td>${{ "%.2f"|format(order.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    const salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ dates | tojson }},
+    datasets: [{
+        label: 'Total Sales ($)',
+        data: {{ totals | tojson }},
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        tension: 0.4,
+        fill: true
+            }]
+        },
+    options: {
+        responsive: true,
+            plugins: {
+            legend: {
+                position: 'top',
+                },
+            title: {
+                display: true,
+                    text: 'Daily Sales Revenue'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                    ticks: {
+                    callback: function(value, index, values) {
+                        return '$' + value;
+                    }
+                }
+            }
+        }
+    }
+    });
+</script>
+
+<style>
+    .admin-dashboard {
+        padding: 2rem 0;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    .chart-container,
+    .transactions-container {
+        background: var(--card-bg);
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-completed {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-pending {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-shipped {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    .status-cancelled {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+</style>
+{% endblock %}

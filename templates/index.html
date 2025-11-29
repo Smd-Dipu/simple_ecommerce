@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero"
+    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 4rem 2rem; text-align: center; color: white; margin-bottom: 2rem; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+    <h1 style="font-size: 3rem; margin-bottom: 1rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">Welcome to ShopSimple
+    </h1>
+    <p style="font-size: 1.25rem; margin-bottom: 2rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Browse our collection
+        of high-quality products.</p>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <div
+            style="background: rgba(255,255,255,0.2); padding: 1rem 2rem; border-radius: 8px; backdrop-filter: blur(10px);">
+            <div style="font-size: 2rem; font-weight: bold;">10,000+</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Products</div>
+        </div>
+        <div
+            style="background: rgba(255,255,255,0.2); padding: 1rem 2rem; border-radius: 8px; backdrop-filter: blur(10px);">
+            <div style="font-size: 2rem; font-weight: bold;">Fast</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Delivery</div>
+        </div>
+        <div
+            style="background: rgba(255,255,255,0.2); padding: 1rem 2rem; border-radius: 8px; backdrop-filter: blur(10px);">
+            <div style="font-size: 2rem; font-weight: bold;">24/7</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Support</div>
+        </div>
+    </div>
+</div>
+
+<div class="content-with-sidebar">
+    <!-- Left Sidebar - Categories -->
+    <aside class="category-sidebar">
+        <h3 class="sidebar-title">Categories</h3>
+        <ul class="category-list">
+            <li>
+                <a href="{{ url_for('index') }}" class="category-link {% if not selected_category %}active{% endif %}">
+                    <span class="category-icon">📦</span>
+                    All Products
+                </a>
+            </li>
+            {% for category in categories %}
+            <li>
+                <a href="{{ url_for('index', category=category) }}"
+                    class="category-link {% if selected_category == category %}active{% endif %}">
+                    <span class="category-icon">
+                        {% if category == 'Electronics' %}📱
+                        {% elif category == 'Clothing' %}👕
+                        {% elif category == 'Home & Kitchen' %}🏠
+                        {% elif category == 'Books' %}📚
+                        {% elif category == 'Sports' %}⚽
+                        {% elif category == 'Toys' %}🧸
+                        {% elif category == 'Beauty' %}💄
+                        {% elif category == 'Automotive' %}🚗
+                        {% else %}📌{% endif %}
+                    </span>
+                    {{ category }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-products-area">
+        {% if selected_category %}
+        <div class="category-header">
+            <h2>{{ selected_category }}</h2>
+            <p>{{ products.total }} products found</p>
+        </div>
+        {% endif %}
+
+        <div class="products-grid">
+            {% for product in products.items %}
+            <div class="product-card">
+                <a href="{{ url_for('product_detail', product_id=product.id) }}">
+                    {% if product.image_url %}
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
+                    {% else %}
+                    <div class="product-image"></div>
+                    {% endif %}
+                </a>
+                <div class="product-info">
+                    <a href="{{ url_for('product_detail', product_id=product.id) }}" class="product-title">{{
+                        product.name }}</a>
+                    <div class="product-price">${{ "%.2f"|format(product.price) }}</div>
+                    <form action="{{ url_for('add_to_cart', product_id=product.id) }}" method="POST">
+                        <button type="submit" class="btn btn-block">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="pagination">
+            {% if products.has_prev %}
+            <a href="{{ url_for('index', page=products.prev_num, category=selected_category) }}">&laquo; Previous</a>
+            {% endif %}
+
+            <span>Page {{ products.page }} of {{ products.pages }}</span>
+
+            {% if products.has_next %}
+            <a href="{{ url_for('index', page=products.next_num, category=selected_category) }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
