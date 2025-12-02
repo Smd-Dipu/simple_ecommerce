@@ -37,6 +37,8 @@ def about():
 @app.route('/cart')
 def cart():
     cart_items = session.get('cart', {})
+    saved_items_dict = session.get('saved_for_later', {})
+    
     products = []
     total_price = 0
     for pid, quantity in cart_items.items():
@@ -45,7 +47,15 @@ def cart():
             total = product.price * quantity
             products.append({'product': product, 'quantity': quantity, 'total': total})
             total_price += total
-    return render_template('cart.html', products=products, total_price=total_price)
+    
+    # Get saved items
+    saved_items = []
+    for pid, quantity in saved_items_dict.items():
+        product = Product.query.get(int(pid))
+        if product:
+            saved_items.append({'product': product, 'quantity': quantity})
+    
+    return render_template('cart.html', products=products, total_price=total_price, saved_items=saved_items)
 
 @app.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -55,6 +65,78 @@ def add_to_cart(product_id):
     session['cart'] = cart_items
     flash('Item added to cart', 'success')
     return redirect(url_for('index'))
+
+@app.route('/update_cart_quantity/<int:product_id>', methods=['POST'])
+def update_cart_quantity(product_id):
+    action = request.form.get('action')
+    cart_items = session.get('cart', {})
+    
+    if str(product_id) in cart_items:
+        if action == 'increase':
+            cart_items[str(product_id)] += 1
+        elif action == 'decrease':
+            cart_items[str(product_id)] -= 1
+            if cart_items[str(product_id)] <= 0:
+                del cart_items[str(product_id)]
+        
+        session['cart'] = cart_items
+        flash('Cart updated', 'success')
+    
+    return redirect(url_for('cart'))
+
+@app.route('/remove_from_cart/<int:product_id>', methods=['POST'])
+def remove_from_cart(product_id):
+    cart_items = session.get('cart', {})
+    
+    if str(product_id) in cart_items:
+        del cart_items[str(product_id)]
+        session['cart'] = cart_items
+        flash('Item removed from cart', 'success')
+    
+    return redirect(url_for('cart'))
+
+@app.route('/save_for_later/<int:product_id>', methods=['POST'])
+def save_for_later(product_id):
+    cart_items = session.get('cart', {})
+    saved_items = session.get('saved_for_later', {})
+    
+    if str(product_id) in cart_items:
+        quantity = cart_items[str(product_id)]
+        saved_items[str(product_id)] = quantity
+        del cart_items[str(product_id)]
+        
+        session['cart'] = cart_items
+        session['saved_for_later'] = saved_items
+        flash('Item saved for later', 'success')
+    
+    return redirect(url_for('cart'))
+
+@app.route('/move_to_cart/<int:product_id>', methods=['POST'])
+def move_to_cart(product_id):
+    cart_items = session.get('cart', {})
+    saved_items = session.get('saved_for_later', {})
+    
+    if str(product_id) in saved_items:
+        quantity = saved_items[str(product_id)]
+        cart_items[str(product_id)] = cart_items.get(str(product_id), 0) + quantity
+        del saved_items[str(product_id)]
+        
+        session['cart'] = cart_items
+        session['saved_for_later'] = saved_items
+        flash('Item moved to cart', 'success')
+    
+    return redirect(url_for('cart'))
+
+@app.route('/remove_from_saved/<int:product_id>', methods=['POST'])
+def remove_from_saved(product_id):
+    saved_items = session.get('saved_for_later', {})
+    
+    if str(product_id) in saved_items:
+        del saved_items[str(product_id)]
+        session['saved_for_later'] = saved_items
+        flash('Item removed from saved items', 'success')
+    
+    return redirect(url_for('cart'))
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
