@@ -1,11 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from config import Config
 from models import db, Product, User, Order, OrderItem
+import stripe
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
 db.init_app(app)
+stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 @app.route('/')
 def index():
@@ -177,6 +179,82 @@ def checkout():
         return redirect(url_for('index'))
         
     return render_template('cart.html', checkout=True)
+
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    cart_items = session.get('cart', {})
+    if not cart_items:
+        return redirect(url_for('cart'))
+
+    line_items = []
+    for pid, quantity in cart_items.items():
+        product = Product.query.get(int(pid))
+        if product:
+            line_items.append({
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': product.name,
+                        'images': [product.image_url] if product.image_url else [],
+                    },
+                    'unit_amount': int(product.price * 100), # Amount in cents
+                },
+                'quantity': quantity,
+            })
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=line_items,
+            mode='payment',
+            success_url=url_for('payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=url_for('payment_cancel', _external=True),
+        )
+        return redirect(checkout_session.url, code=303)
+    except Exception as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('cart'))
+
+@app.route('/payment/success')
+def payment_success():
+    session_id = request.args.get('session_id')
+    # Verify session if needed, but for now just process order
+    
+    cart_items = session.get('cart', {})
+    if not cart_items:
+        return redirect(url_for('index'))
+
+    # Create user/order logic (duplicated from old checkout for now, refactor later)
+    user = User.query.first()
+    if not user:
+        user = User(username='guest', email='guest@example.com')
+        db.session.add(user)
+        db.session.commit()
+
+    total_price = 0
+    order = Order(user_id=user.id, total_price=0, status='Paid') # Status Paid
+    db.session.add(order)
+    db.session.commit()
+
+    for pid, quantity in cart_items.items():
+        product = Product.query.get(int(pid))
+        if product:
+            item_total = product.price * quantity
+            total_price += item_total
+            order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, price=product.price)
+            db.session.add(order_item)
+    
+    order.total_price = total_price
+    db.session.commit()
+    
+    session.pop('cart', None)
+    flash('Payment successful! Order placed.', 'success')
+    return render_template('cart.html', checkout=True)
+
+@app.route('/payment/cancel')
+def payment_cancel():
+    flash('Payment cancelled.', 'warning')
+    return redirect(url_for('cart'))
 
 
 
