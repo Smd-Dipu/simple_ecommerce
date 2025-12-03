@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from config import Config
 from models import db, Product, User, Order, OrderItem
 import stripe
+from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
+from paypalcheckoutsdk.orders import OrdersCreateRequest, OrdersCaptureRequest
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -57,7 +59,7 @@ def cart():
         if product:
             saved_items.append({'product': product, 'quantity': quantity})
     
-    return render_template('cart.html', products=products, total_price=total_price, saved_items=saved_items)
+    return render_template('cart.html', products=products, total_price=total_price, saved_items=saved_items, paypal_client_id=app.config['PAYPAL_CLIENT_ID'])
 
 @app.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -255,6 +257,87 @@ def payment_success():
 def payment_cancel():
     flash('Payment cancelled.', 'warning')
     return redirect(url_for('cart'))
+
+# PayPal Helpers
+def get_paypal_client():
+    client_id = app.config['PAYPAL_CLIENT_ID']
+    client_secret = app.config['PAYPAL_CLIENT_SECRET']
+    environment = SandboxEnvironment(client_id=client_id, client_secret=client_secret)
+    return PayPalHttpClient(environment)
+
+@app.route('/api/create-paypal-order', methods=['POST'])
+def create_paypal_order():
+    cart_items = session.get('cart', {})
+    if not cart_items:
+        return jsonify({'error': 'Cart is empty'}), 400
+
+    total_amount = 0
+    for pid, quantity in cart_items.items():
+        product = Product.query.get(int(pid))
+        if product:
+            total_amount += product.price * quantity
+    
+    request = OrdersCreateRequest()
+    request.prefer('return=representation')
+    request.request_body({
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "amount": {
+                "currency_code": "USD",
+                "value": "{:.2f}".format(total_amount)
+            }
+        }]
+    })
+
+    try:
+        client = get_paypal_client()
+        response = client.execute(request)
+        return jsonify({'id': response.result.id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/capture-paypal-order', methods=['POST'])
+def capture_paypal_order():
+    data = request.get_json()
+    order_id = data.get('orderID')
+    
+    request = OrdersCaptureRequest(order_id)
+    
+    try:
+        client = get_paypal_client()
+        response = client.execute(request)
+        
+        # Order captured successfully, create local order
+        cart_items = session.get('cart', {})
+        
+        user = User.query.first()
+        if not user:
+            user = User(username='guest', email='guest@example.com')
+            db.session.add(user)
+            db.session.commit()
+
+        total_price = 0
+        order = Order(user_id=user.id, total_price=0, status='Paid (PayPal)')
+        db.session.add(order)
+        db.session.commit()
+
+        for pid, quantity in cart_items.items():
+            product = Product.query.get(int(pid))
+            if product:
+                item_total = product.price * quantity
+                total_price += item_total
+                order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, price=product.price)
+                db.session.add(order_item)
+        
+        order.total_price = total_price
+        db.session.commit()
+        
+        session.pop('cart', None)
+        flash('Payment successful! Order placed.', 'success')
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
