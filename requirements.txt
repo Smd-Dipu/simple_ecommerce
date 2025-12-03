@@ -3,3 +3,6 @@ Flask-SQLAlchemy
 PyMySQL
 Faker
 cryptography
+stripe
+paypal-checkout-serversdk
+python-dotenv

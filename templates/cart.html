@@ -146,60 +146,113 @@
                 </div>
 
                 <div class="summary-divider"></div>
-                <div class="benefit-item">
-                    <span class="benefit-icon">🔒</span>
-                    <span>Secure Checkout</span>
-                </div>
-                <div class="benefit-item">
-                    <span class="benefit-icon">↩️</span>
-                    <span>30-Day Returns</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<div class="empty-cart">
-    <div class="empty-cart-icon">🛒</div>
-    <h2>Your cart is empty</h2>
-    <p>Looks like you haven't added anything to your cart yet.</p>
 
-    {% if saved_items %}
-    <div class="saved-items-preview">
-        <h3>You have {{ saved_items|length }} item(s) saved for later</h3>
-        <div class="saved-items">
-            {% for item in saved_items %}
-            <div class="saved-item">
-                <div class="saved-item-image">
-                    <img src="{{ item.product.image_url or 'https://via.placeholder.com/100' }}"
-                        alt="{{ item.product.name }}"
-                        onerror="this.src='https://via.placeholder.com/100?text=No+Image'">
+                <div class="summary-row total">
+                    <span>Order Total:</span>
+                    <span class="total-amount">${{ "%.2f"|format(total_price) }}</span>
                 </div>
-                <div class="saved-item-info">
-                    <h4><a href="{{ url_for('product_detail', product_id=item.product.id) }}">{{ item.product.name
-                            }}</a></h4>
-                    <p class="saved-item-price">${{ "%.2f"|format(item.product.price) }}</p>
-                    <div class="saved-item-actions">
-                        <form action="{{ url_for('move_to_cart', product_id=item.product.id) }}" method="POST"
-                            style="display: inline;">
-                            <button type="submit" class="action-link">Move to Cart</button>
-                        </form>
-                        <span class="separator">|</span>
-                        <form action="{{ url_for('remove_from_saved', product_id=item.product.id) }}" method="POST"
-                            style="display: inline;">
-                            <button type="submit" class="action-link delete">Delete</button>
-                        </form>
+
+                <form action="{{ url_for('create_checkout_session') }}" method="POST">
+                    <button type="submit" class="btn btn-checkout">Pay with Card</button>
+                </form>
+
+                <div style="text-align: center; margin: 10px 0; color: #666;">- OR -</div>
+
+                <div id="paypal-button-container"></div>
+
+                <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD"></script>
+                <script>
+                    paypal.Buttons({
+                        createOrder: function (data, actions) {
+                            return fetch('/api/create-paypal-order', {
+                                method: 'post'
+                            }).then(function (res) {
+                                return res.json();
+                            }).then(function (orderData) {
+                                return orderData.id;
+                            });
+                        },
+                        onApprove: function (data, actions) {
+                            return fetch('/api/capture-paypal-order', {
+                                method: 'post',
+                                headers: {
+                                    'content-type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    orderID: data.orderID
+                                })
+                            }).then(function (res) {
+                                return res.json();
+                            }).then(function (orderData) {
+                                if (orderData.status === 'success') {
+                                    window.location.reload();
+                                } else {
+                                    alert('Transaction failed: ' + JSON.stringify(orderData));
+                                }
+                            });
+                        }
+                    }).render('#paypal-button-container');
+                </script>
+
+                <div class="summary-benefits">
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🚚</span>
+                        <span>Free Shipping on all orders</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🔒</span>
+                        <span>Secure Checkout</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">↩️</span>
+                        <span>30-Day Returns</span>
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
-    {% endif %}
+    {% else %}
+    <div class="empty-cart">
+        <div class="empty-cart-icon">🛒</div>
+        <h2>Your cart is empty</h2>
+        <p>Looks like you haven't added anything to your cart yet.</p>
 
-    <a href="{{ url_for('index') }}" class="btn btn-primary">Start Shopping</a>
-</div>
-{% endif %}
-{% endif %}
+        {% if saved_items %}
+        <div class="saved-items-preview">
+            <h3>You have {{ saved_items|length }} item(s) saved for later</h3>
+            <div class="saved-items">
+                {% for item in saved_items %}
+                <div class="saved-item">
+                    <div class="saved-item-image">
+                        <img src="{{ item.product.image_url or 'https://via.placeholder.com/100' }}"
+                            alt="{{ item.product.name }}"
+                            onerror="this.src='https://via.placeholder.com/100?text=No+Image'">
+                    </div>
+                    <div class="saved-item-info">
+                        <h4><a href="{{ url_for('product_detail', product_id=item.product.id) }}">{{ item.product.name
+                                }}</a></h4>
+                        <p class="saved-item-price">${{ "%.2f"|format(item.product.price) }}</p>
+                        <div class="saved-item-actions">
+                            <form action="{{ url_for('move_to_cart', product_id=item.product.id) }}" method="POST"
+                                style="display: inline;">
+                                <button type="submit" class="action-link">Move to Cart</button>
+                            </form>
+                            <span class="separator">|</span>
+                            <form action="{{ url_for('remove_from_saved', product_id=item.product.id) }}" method="POST"
+                                style="display: inline;">
+                                <button type="submit" class="action-link delete">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Start Shopping</a>
+    </div>
+    {% endif %}
+    {% endif %}
 </div>
 {% endblock %}

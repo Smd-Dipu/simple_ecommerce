@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from config import Config
 from models import db, Product, User, Order, OrderItem
 import stripe
@@ -186,9 +186,12 @@ def checkout():
 def create_checkout_session():
     cart_items = session.get('cart', {})
     if not cart_items:
+        flash('Your cart is empty', 'warning')
         return redirect(url_for('cart'))
 
     line_items = []
+    total_amount = 0
+    
     for pid, quantity in cart_items.items():
         product = Product.query.get(int(pid))
         if product:
@@ -203,6 +206,11 @@ def create_checkout_session():
                 },
                 'quantity': quantity,
             })
+            total_amount += product.price * quantity
+    
+    if not line_items:
+        flash('No valid items in cart', 'warning')
+        return redirect(url_for('cart'))
 
     try:
         checkout_session = stripe.checkout.Session.create(
@@ -211,22 +219,53 @@ def create_checkout_session():
             mode='payment',
             success_url=url_for('payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=url_for('payment_cancel', _external=True),
+            metadata={
+                'total_amount': str(total_amount),
+                'num_items': str(len(cart_items))
+            }
         )
         return redirect(checkout_session.url, code=303)
+    except stripe.error.AuthenticationError as e:
+        flash('Payment system configuration error. Please contact support.', 'danger')
+        return redirect(url_for('cart'))
+    except stripe.error.InvalidRequestError as e:
+        flash('Invalid payment request. Please try again.', 'danger')
+        return redirect(url_for('cart'))
+    except stripe.error.StripeError as e:
+        flash(f'Payment error: {str(e)}', 'danger')
+        return redirect(url_for('cart'))
     except Exception as e:
-        flash(str(e), 'danger')
+        flash('An unexpected error occurred. Please try again.', 'danger')
         return redirect(url_for('cart'))
 
 @app.route('/payment/success')
 def payment_success():
     session_id = request.args.get('session_id')
-    # Verify session if needed, but for now just process order
+    
+    if not session_id:
+        flash('Invalid payment session', 'danger')
+        return redirect(url_for('cart'))
+    
+    try:
+        # Verify the session with Stripe
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Verify payment was successful
+        if checkout_session.payment_status != 'paid':
+            flash('Payment was not completed. Please try again.', 'warning')
+            return redirect(url_for('cart'))
+        
+    except stripe.error.StripeError as e:
+        flash('Could not verify payment. Please contact support.', 'danger')
+        return redirect(url_for('cart'))
     
     cart_items = session.get('cart', {})
     if not cart_items:
-        return redirect(url_for('index'))
+        # Payment was successful but cart is already empty (maybe page refresh)
+        flash('Payment successful! Your order has been placed.', 'success')
+        return render_template('cart.html', checkout=True)
 
-    # Create user/order logic (duplicated from old checkout for now, refactor later)
+    # Create user/order logic
     user = User.query.first()
     if not user:
         user = User(username='guest', email='guest@example.com')
@@ -234,7 +273,7 @@ def payment_success():
         db.session.commit()
 
     total_price = 0
-    order = Order(user_id=user.id, total_price=0, status='Paid') # Status Paid
+    order = Order(user_id=user.id, total_price=0, status='Paid (Stripe)')
     db.session.add(order)
     db.session.commit()
 

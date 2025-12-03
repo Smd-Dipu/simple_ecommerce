@@ -16,5 +16,5 @@ class Config:
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', 'your-stripe-secret-key') 
 
     # PayPal Configuration
-    PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', 'your-paypal-client-id') 
+    PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', 'sb') 
     PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', 'your-paypal-client-secret')
