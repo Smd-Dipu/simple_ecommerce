@@ -9,7 +9,10 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 db.init_app(app)
-stripe.api_key = app.config['STRIPE_SECRET_KEY']
+
+# Only set Stripe API key if not in test mode
+if not app.config.get('TEST_MODE', False):
+    stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 @app.route('/')
 def index():
@@ -212,6 +215,13 @@ def create_checkout_session():
         flash('No valid items in cart', 'warning')
         return redirect(url_for('cart'))
 
+    # TEST MODE: Bypass Stripe and simulate successful payment
+    if app.config.get('TEST_MODE', False):
+        # Store cart info in session for mock payment success page
+        session['mock_payment_amount'] = total_amount
+        session['mock_payment_items'] = len(cart_items)
+        return redirect(url_for('payment_success', _external=True) + '?session_id=mock_test_session')
+
     try:
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -226,16 +236,16 @@ def create_checkout_session():
         )
         return redirect(checkout_session.url, code=303)
     except stripe.error.AuthenticationError as e:
-        flash('Payment system configuration error. Please contact support.', 'danger')
+        flash('Stripe API keys not configured. Please check STRIPE_SETUP.md for setup instructions.', 'danger')
         return redirect(url_for('cart'))
     except stripe.error.InvalidRequestError as e:
-        flash('Invalid payment request. Please try again.', 'danger')
+        flash('Invalid payment request. Please check your Stripe configuration.', 'danger')
         return redirect(url_for('cart'))
     except stripe.error.StripeError as e:
-        flash(f'Payment error: {str(e)}', 'danger')
+        flash(f'Stripe error: {str(e)}', 'danger')
         return redirect(url_for('cart'))
     except Exception as e:
-        flash('An unexpected error occurred. Please try again.', 'danger')
+        flash('Payment error. Please ensure Stripe is configured correctly (see STRIPE_SETUP.md).', 'danger')
         return redirect(url_for('cart'))
 
 @app.route('/payment/success')
@@ -246,18 +256,23 @@ def payment_success():
         flash('Invalid payment session', 'danger')
         return redirect(url_for('cart'))
     
-    try:
-        # Verify the session with Stripe
-        checkout_session = stripe.checkout.Session.retrieve(session_id)
-        
-        # Verify payment was successful
-        if checkout_session.payment_status != 'paid':
-            flash('Payment was not completed. Please try again.', 'warning')
+    # TEST MODE: Skip Stripe verification
+    if app.config.get('TEST_MODE', False) and session_id == 'mock_test_session':
+        # Mock payment is always successful in test mode
+        pass
+    else:
+        try:
+            # Verify the session with Stripe
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            
+            # Verify payment was successful
+            if checkout_session.payment_status != 'paid':
+                flash('Payment was not completed. Please try again.', 'warning')
+                return redirect(url_for('cart'))
+            
+        except stripe.error.StripeError as e:
+            flash('Could not verify payment. Please contact support.', 'danger')
             return redirect(url_for('cart'))
-        
-    except stripe.error.StripeError as e:
-        flash('Could not verify payment. Please contact support.', 'danger')
-        return redirect(url_for('cart'))
     
     cart_items = session.get('cart', {})
     if not cart_items:

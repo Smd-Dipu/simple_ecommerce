@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class Config:
     # SQLite fallback
@@ -18,3 +22,6 @@ class Config:
     # PayPal Configuration
     PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', 'sb') 
     PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', 'your-paypal-client-secret')
+    
+    # Test Mode - Set to True to bypass payment gateways for testing
+    TEST_MODE = os.environ.get('TEST_MODE', 'True').lower() in ('true', '1', 'yes')
